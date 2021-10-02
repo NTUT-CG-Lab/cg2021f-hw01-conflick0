@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>three.js webgl - loader - ttf</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link type="text/css" rel="stylesheet" href="main.css">
+</head>
+<body>
+<script src="./opentype.min.js"></script>
+<script src="./three.min.js"></script>
+<script src="./TTFLoader.js"></script>
+
+<script>
+    let container;
+    let camera, cameraTarget, scene, renderer;
+    let targetRotation = 0;
+    let windowHalfX = window.innerWidth / 2;
+
+    init();
+    animate();
+
+    function init() {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+
+        // camera
+        camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 1500);
+        camera.position.set(0, 500, 1000);
+        cameraTarget = new THREE.Vector3(0, 150, 0);
+
+        // scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000);
+
+        // lights
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.125);
+        dirLight.position.set(0, 0, 1).normalize();
+        scene.add(dirLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 1.5);
+        pointLight.position.set(0, 100, 90);
+        scene.add(pointLight);
+
+        // plane
+        let plane = createPlaneMesh()
+        scene.add(plane);
+
+        // circle
+        let circle = createCircleMesh()
+        scene.add(circle);
+
+        // text
+        let loader = new THREE.TTFLoader();
+        loader.load('./ttf/edukai-4.0.ttf', function (json) {
+            let font = new THREE.Font(json);
+
+            // ground text
+            let groundText = "高等計算機圖學"
+            let groundTextMesh = createGroundTextMesh(groundText, font);
+            scene.add(groundTextMesh)
+
+            // circle text
+            let circleTexts = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+            let positionOffsets = getCircleTextMeshPositionOffsets()
+            circleTexts.forEach(function (circleText, index){
+                let circleTextMesh = createCircleTextMesh(circleText, font)
+                let offset = positionOffsets[index]
+                circleTextMesh.position.x += offset.x
+                circleTextMesh.position.y += offset.y
+                scene.add(circleTextMesh)
+            })
+
+        });
+
+        // renderer
+        renderer = new THREE.WebGLRenderer({antialias: true});
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        // events
+        container.style.touchAction = 'none';
+        window.addEventListener('resize', onWindowResize);
+    }
+
+    function onWindowResize() {
+        windowHalfX = window.innerWidth / 2;
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function createPlaneMesh() {
+        let plane = new THREE.Mesh(
+            new THREE.PlaneGeometry(1000, 1000),
+            new THREE.MeshBasicMaterial({color: 0xffffff, opacity: 0.5, transparent: true})
+        );
+        plane.position.y = 100;
+        plane.rotation.x = -Math.PI / 2;
+        return plane
+    }
+
+    function createCircleMesh() {
+        let circle = new THREE.Mesh(
+            new THREE.CircleGeometry(100, 100),
+            new THREE.MeshBasicMaterial({color: 0x66ccff, opacity: 0.5, transparent: true})
+        );
+        circle.position.y = 300;
+        circle.rotation.x = 0;
+        return circle
+    }
+
+    function createGroundTextMesh(text, font) {
+        const size = 70,
+            height = 5,
+            hover = 100,
+            curveSegments = 4,
+            bevelThickness = 2,
+            bevelSize = 1.5;
+
+        let textGeo = new THREE.TextGeometry(text, {
+            font: font,
+            size: size,
+            height: height,
+            curveSegments: curveSegments,
+            bevelThickness: bevelThickness,
+            bevelSize: bevelSize,
+            bevelEnabled: true
+
+        });
+
+        textGeo.computeBoundingBox();
+        textGeo.computeVertexNormals();
+
+        const centerOffset = -0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
+        let material = new THREE.MeshPhongMaterial({color: 0xffffff, flatShading: true});
+        let textMesh = new THREE.Mesh(textGeo, material);
+        textMesh.position.x = centerOffset;
+        textMesh.position.y = hover;
+        textMesh.position.z = 0;
+
+        textMesh.rotation.x = -Math.PI / 2;
+        textMesh.rotation.y = Math.PI * 2;
+
+        return textMesh
+    }
+
+    function createCircleTextMesh(text, font) {
+        const size = 20,
+            height = 5,
+            hover = 300,
+            curveSegments = 4,
+            bevelThickness = 2,
+            bevelSize = 1.5;
+
+        let textGeo = new THREE.TextGeometry(text, {
+            font: font,
+            size: size,
+            height: height,
+            curveSegments: curveSegments,
+            bevelThickness: bevelThickness,
+            bevelSize: bevelSize,
+            bevelEnabled: true
+        });
+
+        textGeo.computeBoundingBox();
+        textGeo.computeVertexNormals();
+
+        const centerOffset = -0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
+        let material = new THREE.MeshPhongMaterial({color: 0xffffff, flatShading: true});
+        let textMesh = new THREE.Mesh(textGeo, material);
+        textMesh.position.x = centerOffset;
+        textMesh.position.y = hover;
+        textMesh.position.z = 0;
+
+        textMesh.rotation.x = 0;
+        textMesh.rotation.y = Math.PI * 2;
+
+        return textMesh
+    }
+
+    function getCircleTextMeshPositionOffsets() {
+        let h = 75; // triangle hypotenuse (circle text meshes radius)
+        let s = h * 0.5 // triangle short side
+        let l = Math.round(h * 0.9) // triangle long side
+
+        return [
+            {x: 0, y: h},
+            {x: s, y: l},
+            {x: l, y: s},
+            {x: h, y: 0},
+            {x: l, y: -s},
+            {x: s, y: -l},
+            {x: 0, y: -h},
+            {x: -s, y: -l},
+            {x: -l, y: -s},
+            {x: -h, y: 0},
+            {x: -l, y: s},
+            {x: -s, y: l},
+        ]
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        camera.lookAt(cameraTarget);
+        renderer.render(scene, camera);
+    }
+
+</script>
+
+</body>
+</html>

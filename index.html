@@ -13,7 +13,7 @@
     // 建構子 ScoreOutputer 接受一個字串，該字串為 csv 的檔案名稱
     // 以下面範例，檔名就為 "109598105(總分: 6).csv"
     var so = new ScoreOutputer("110598045");
-    so.installCSS(function(){
+    so.installCSS(function () {
         // 安裝 bootstrap 的 css，如果在 html 上方引用 bootstrap 5.1.1 的話就不用使用 installCSS ，注意一定要 bootstrap css 5.1.1 版
         // installCSS 接收一個 callback 當作參數，作為成功安裝 bootstrap css 的回呼函式
 
@@ -26,8 +26,8 @@
         so.addChild("創建場景", 2, true);
         so.addChild("讀取字形檔", 2, true);
         so.addChild("將地支以圓圈排列", 2, true);
-        so.addChild("滑鼠點擊 12 地支分別跳轉網頁", 1, false);
-        so.addChild("高等計算機圖形作業", 1, true);
+        so.addChild("滑鼠點擊 12 地支分別跳轉網頁", 1, true);
+        so.addChild("顯示高等計算機圖形作業", 1, true);
         so.addChild("時鐘效果", 1, false);
         so.addChild("任何 ply 格式模型", 1, false);
 
@@ -44,7 +44,7 @@
             //5. 自評表 checkbox 文字大小 (預設多少忘了)
             '15px',
             //6. 自評表標題 (預設 "自我評分表")
-            dialogTitle='自我評分表 (助教測試用)'
+            dialogTitle = '自我評分表 (助教測試用)'
         );
 
         //設定下載按鈕 <-- 一定要呼叫這個函數，不然沒有下載功能
@@ -68,6 +68,9 @@
     let targetRotation = 0;
     let windowHalfX = window.innerWidth / 2;
     let clockGroup, clockTextGroup;
+    let mouse = new THREE.Vector2();
+    let raycaster = new THREE.Raycaster();
+    let clockCircleMeshes = [];
 
     init();
     animate();
@@ -115,7 +118,7 @@
             let font = new THREE.Font(json);
 
             // ground text mesh
-            let groundText = "高等計算機圖學"
+            let groundText = "高等計算機圖學作業"
             let groundTextMesh = createGroundTextMesh(groundText, font);
             scene.add(groundTextMesh);
 
@@ -135,8 +138,22 @@
         // events
         container.style.touchAction = 'none';
 
-
+        window.addEventListener('mousedown', onMouseDown);
         window.addEventListener('resize', onWindowResize);
+    }
+
+    function onMouseDown(event) {
+        event.preventDefault();
+        mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+        mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+
+        let intersects = raycaster.intersectObjects(clockCircleMeshes);
+
+        if (intersects.length > 0) {
+            window.open(intersects[0].object.userData.url);
+        }
     }
 
     function onWindowResize() {
@@ -163,14 +180,19 @@
         );
     }
 
-    function createClockTextGroup(font){
+    function createClockTextGroup(font) {
         let clockTexts = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+        let hwNumber = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
         let positionOffsets = getCircleTextMeshPositionOffsets();
-        clockTexts.forEach(function (clockText, index){
+        clockTexts.forEach(function (clockText, index) {
             let offset = positionOffsets[index];
             let clockCircleMesh = createClockCircleMesh();
             clockCircleMesh.position.x = offset.x;
             clockCircleMesh.position.y = offset.y;
+            clockCircleMesh.userData = {
+                url: `https://ntut-cg-lab.github.io/cg2021f-hw${hwNumber[index]}-conflick0/`
+            }
+            clockCircleMeshes.push(clockCircleMesh);
             clockTextGroup.add(clockCircleMesh);
 
             let clockTextMesh = createClockTextMesh(clockText, font);

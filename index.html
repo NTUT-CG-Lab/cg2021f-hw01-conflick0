@@ -28,7 +28,7 @@
         so.addChild("將地支以圓圈排列", 2, true);
         so.addChild("滑鼠點擊 12 地支分別跳轉網頁", 1, true);
         so.addChild("顯示高等計算機圖形作業", 1, true);
-        so.addChild("時鐘效果", 1, false);
+        so.addChild("時鐘效果", 1, true);
         so.addChild("任何 ply 格式模型", 1, false);
 
         //產生自評表，參數如下所示
@@ -102,17 +102,18 @@
         scene.add(plane);
 
         // clock group
+        let clockPositionY = 300;
         clockGroup = new THREE.Group();
-        clockGroup.position.y = 300;
+        clockGroup.position.y = clockPositionY;
 
         clockTextGroup = new THREE.Group();
-        clockTextGroup.position.y = 300;
+        clockTextGroup.position.y = clockPositionY;
 
         // clock
         let clockMesh = createClockMesh();
         clockGroup.add(clockMesh);
 
-        // ground text and circle text
+        // ground text and clock text
         let loader = new THREE.TTFLoader();
         loader.load('./ttf/edukai-4.0.ttf', function (json) {
             let font = new THREE.Font(json);
@@ -128,6 +129,9 @@
 
         scene.add(clockGroup);
         scene.add(clockTextGroup);
+
+        // clock animation
+        createClockAnimation();
 
         // renderer
         renderer = new THREE.WebGLRenderer({antialias: true});
@@ -182,7 +186,7 @@
 
     function createClockTextGroup(font) {
         let clockTexts = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
-        let hwNumber = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        let hwNumber = ["12", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"];
         let positionOffsets = getCircleTextMeshPositionOffsets();
         clockTexts.forEach(function (clockText, index) {
             let offset = positionOffsets[index];
@@ -294,6 +298,73 @@
             {x: -l, y: s},
             {x: -s, y: l},
         ]
+    }
+
+    function createClockAnimation() {
+        const secondHandLine = createSecondHandLine()
+        clockGroup.add(secondHandLine);
+        const minuteHandLine = createMinuteHandLine()
+        clockGroup.add(minuteHandLine);
+        const hourHandLine = createHourHandLine()
+        clockGroup.add(hourHandLine);
+
+        setInterval(function () {
+            let date = new Date();
+            let hours = date.getHours();
+            let minutes = date.getMinutes();
+            let seconds = date.getSeconds();
+            let milliseconds = date.getMilliseconds();
+            let smoothSeconds = seconds + ( milliseconds / 1000 );
+            minutes = minutes + ( smoothSeconds / 60 );
+
+            hourHandLine.rotation.z = -THREE.Math.degToRad( 0.5 * ( (60 * hours) + minutes ) );
+            minuteHandLine.rotation.z = -THREE.Math.degToRad( 6 * minutes );
+            secondHandLine.rotation.z = -THREE.Math.degToRad( 6 * smoothSeconds );
+        }, 1000);
+    }
+
+    function createSecondHandLine() {
+        const material = new THREE.LineBasicMaterial({
+            color: 0xffffff
+        });
+
+        const points = [
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 85, 20)
+        ];
+
+        return createLine(points, material);
+    }
+
+    function createMinuteHandLine() {
+        const material = new THREE.LineBasicMaterial({
+            color: 0xffffff
+        });
+
+        const points = [
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 75, 20)
+        ];
+
+        return createLine(points, material);
+    }
+
+    function createHourHandLine() {
+        const material = new THREE.LineBasicMaterial({
+            color: 0xffffff
+        });
+
+        const points = [
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 50, 20)
+        ];
+
+        return createLine(points, material);
+    }
+
+    function createLine(points, material) {
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        return new THREE.Line(geometry, material);
     }
 
     function animate() {

@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>three.js webgl - loader - ttf</title>
-    <meta charset="utf-8">
+    <title>Title</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <link type="text/css" rel="stylesheet" href="main.css">
 </head>
 <body>
 <div id="info"></div>
-<script src="scoreoutputer.min.js"></script>
+<script src="js/scoreoutputer.min.js"></script>
 <script>
     // 建構子 ScoreOutputer 接受一個字串，該字串為 csv 的檔案名稱
     // 以下面範例，檔名就為 "109598105(總分: 6).csv"
@@ -27,9 +27,9 @@
         so.addChild("讀取字形檔", 2, true);
         so.addChild("將地支以圓圈排列", 2, true);
         so.addChild("滑鼠點擊 12 地支分別跳轉網頁", 1, true);
-        so.addChild("顯示高等計算機圖形作業", 1, true);
+        so.addChild("顯示高等計算機圖學作業", 1, true);
         so.addChild("時鐘效果", 1, true);
-        so.addChild("任何 ply 格式模型", 1, false);
+        so.addChild("任何 ply 格式模型", 1, true);
 
         //產生自評表，參數如下所示
         so.renderModal(
@@ -59,92 +59,98 @@
         );
     });
 </script>
-<script src="./opentype.min.js"></script>
-<script src="./three.min.js"></script>
-<script src="./TTFLoader.js"></script>
+<script src="js/opentype.min.js"></script>
+<script src="js/three.min.js"></script>
+<script src="js/TTFLoader.js"></script>
+<script src="js/PLYLoader.js"></script>
 <script>
-    let container;
-    let camera, cameraTarget, scene, renderer;
-    let targetRotation = 0;
-    let windowHalfX = window.innerWidth / 2;
-    let clockGroup, clockTextGroup;
-    let mouse = new THREE.Vector2();
-    let raycaster = new THREE.Raycaster();
-    let clockCircleMeshes = [];
-    let secondHandLine, minuteHandLine, hourHandLine;
+    let scene, camera, renderer;
+    let clockGroup, clockTextBackgrounds, clockHands;
+    let mouse, raycaster;
+    let plyBall;
 
     init();
     animate();
 
     function init() {
-        container = document.createElement('div');
-        document.body.appendChild(container);
-
         // camera
-        camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 1500);
-        camera.position.set(0, 700, 1100);
-        cameraTarget = new THREE.Vector3(0, 150, 0);
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+        camera.position.set(0, 380, 650);
+        camera.lookAt(0, 0, 0);
 
         // scene
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x000000);
 
-        // lights
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.125);
-        dirLight.position.set(0, 0, 1).normalize();
+        // light
+        let ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff);
+        dirLight.position.set(0, 200, 400);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.top = 180;
+        dirLight.shadow.camera.bottom = -100;
+        dirLight.shadow.camera.left = -500;
+        dirLight.shadow.camera.right = 500;
         scene.add(dirLight);
 
-        const pointLight = new THREE.PointLight(0xffffff, 1.5);
-        pointLight.position.set(0, 300, 90);
-        scene.add(pointLight);
+        // ground
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(1000, 1000),
+            new THREE.MeshPhongMaterial({color: 0x999999})
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
 
-        // plane
-        let plane = createPlaneMesh()
-        scene.add(plane);
-
-        // clock group
-        let clockPositionY = 300;
-        clockGroup = new THREE.Group();
-        clockGroup.position.y = clockPositionY;
-
-        clockTextGroup = new THREE.Group();
-        clockTextGroup.position.y = clockPositionY;
-
-        // clock
-        let clockMesh = createClockMesh();
-        clockGroup.add(clockMesh);
-
-        // clock hand
-        createClockHand();
-
-        // ground text and clock text
-        let loader = new THREE.TTFLoader();
-        loader.load('./ttf/edukai-4.0.ttf', function (json) {
+        // ground text and clock
+        const ttfLoader = new THREE.TTFLoader();
+        ttfLoader.load('data/ttf/edukai-4.0.ttf', function (json) {
             let font = new THREE.Font(json);
-
-            // ground text mesh
+            // ground text
             let groundText = "高等計算機圖學作業"
-            let groundTextMesh = createGroundTextMesh(groundText, font);
-            scene.add(groundTextMesh);
-
-            // clock text mesh
-            createClockTextGroup(font);
+            createGroundText(groundText, font);
+            // clock
+            createClock(font);
         });
 
-        scene.add(clockGroup);
-        scene.add(clockTextGroup);
+        // ply model
+        const plyLoader = new THREE.PLYLoader();
+        plyLoader.load('data/model/ball.ply', function (geometry) {
+            geometry.computeVertexNormals();
+            const material = new THREE.MeshPhongMaterial({
+                map: new THREE.TextureLoader().load('data/texture/earthMap.jpg'),
+                flatShading: true
+            });
+            plyBall = new THREE.Mesh(geometry, material);
+
+            plyBall.position.x = 0;
+            plyBall.position.y = 40;
+            plyBall.position.z = 150;
+            plyBall.scale.multiplyScalar(40);
+            plyBall.castShadow = true;
+            plyBall.userData.dx = 1;
+            scene.add(plyBall);
+        });
 
         // renderer
         renderer = new THREE.WebGLRenderer({antialias: true});
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
-        container.appendChild(renderer.domElement);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
 
-        // events
-        container.style.touchAction = 'none';
-
+        // event
+        mouse = new THREE.Vector2();
+        raycaster = new THREE.Raycaster();
         window.addEventListener('mousedown', onMouseDown);
         window.addEventListener('resize', onWindowResize);
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
     function onMouseDown(event) {
@@ -154,76 +160,96 @@
 
         raycaster.setFromCamera(mouse, camera);
 
-        let intersects = raycaster.intersectObjects(clockCircleMeshes);
+        let intersects = raycaster.intersectObjects(clockTextBackgrounds);
 
         if (intersects.length > 0) {
             window.open(intersects[0].object.userData.url);
         }
     }
 
-    function onWindowResize() {
-        windowHalfX = window.innerWidth / 2;
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+    function createClock(font) {
+        // clock group
+        clockGroup = new THREE.Group();
+        clockGroup.position.y = 150;
+
+        createClockPlane();
+        createClockTexts(font);
+        createClockHand();
+
+        scene.add(clockGroup);
     }
 
-    function createPlaneMesh() {
-        let plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(1000, 1000),
-            new THREE.MeshBasicMaterial({color: 0xffffff, opacity: 0.5, transparent: true})
-        );
-        plane.position.y = 100;
-        plane.rotation.x = -Math.PI / 2;
-        return plane;
-    }
-
-    function createClockMesh() {
-        return new THREE.Mesh(
+    function createClockPlane() {
+        const clockPlane = new THREE.Mesh(
             new THREE.CircleGeometry(100, 100),
             new THREE.MeshBasicMaterial({color: 0x66ccff, opacity: 0.5, transparent: true})
         );
+        clockGroup.add(clockPlane);
     }
 
-    function createClockTextGroup(font) {
-        let clockTexts = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+    function createClockTexts(font) {
+        let texts = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
         let hwNumber = ["12", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"];
         let offsetDeg = 30;
         let startDeg = 90;
-        let radius = 75
-        clockTexts.forEach(function (clockText, index) {
+        let radius = 75;
+        clockTextBackgrounds = [];
+        texts.forEach(function (text, index) {
             let offsetX = radius * Math.cos(THREE.Math.degToRad(startDeg - (offsetDeg * index)));
             let offsetY = radius * Math.sin(THREE.Math.degToRad(startDeg - (offsetDeg * index)));
-            let clockCircleMesh = createClockCircleMesh();
-            clockCircleMesh.position.x = offsetX;
-            clockCircleMesh.position.y = offsetY;
-            clockCircleMesh.userData = {
+
+            // set clock text background
+            let clockTextBackground = new THREE.Mesh(
+                new THREE.CircleGeometry(13, 100),
+                new THREE.MeshBasicMaterial({color: 0x3366ff, opacity: 0.5, transparent: true})
+            );
+            clockTextBackground.position.x = offsetX;
+            clockTextBackground.position.y = offsetY;
+            clockTextBackground.userData = {
                 url: `https://ntut-cg-lab.github.io/cg2021f-hw${hwNumber[index]}-conflick0/`
             }
-            clockCircleMeshes.push(clockCircleMesh);
-            clockTextGroup.add(clockCircleMesh);
+            clockTextBackgrounds.push(clockTextBackground);
+            clockGroup.add(clockTextBackground);
 
-            let clockTextMesh = createClockTextMesh(clockText, font);
-            clockTextMesh.position.x += offsetX;
-            clockTextMesh.position.y += offsetY;
-            clockTextGroup.add(clockTextMesh);
+            // set clock text
+            let clockText = createClockText(text, font);
+            clockText.position.x += offsetX;
+            clockText.position.y += offsetY;
+            clockGroup.add(clockText);
         });
     }
 
-    function createClockCircleMesh() {
-        return new THREE.Mesh(
-            new THREE.CircleGeometry(13, 100),
-            new THREE.MeshBasicMaterial({color: 0x3366ff, opacity: 0.5, transparent: true})
-        );
+    function createClockHand() {
+        const material = new THREE.LineBasicMaterial({
+            color: 0xffffff
+        });
+
+        clockHands = {
+            secondHand: new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 80, 20)
+            ]), material),
+            minuteHand: new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 70, 20)
+            ]), material),
+            hourHand: new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 50, 20)
+            ]), material),
+        }
+
+        clockGroup.add(clockHands.secondHand);
+        clockGroup.add(clockHands.minuteHand);
+        clockGroup.add(clockHands.hourHand);
     }
 
-    function createGroundTextMesh(text, font) {
-        const size = 70,
+    function createGroundText(text, font) {
+        const size = 60,
             height = 5,
-            hover = 100,
             curveSegments = 4,
             bevelThickness = 2,
-            bevelSize = 1.5;
+            bevelSize = 0.5;
 
         let textGeo = new THREE.TextGeometry(text, {
             font: font,
@@ -243,16 +269,15 @@
         let material = new THREE.MeshPhongMaterial({color: 0xffffff, flatShading: true});
         let textMesh = new THREE.Mesh(textGeo, material);
         textMesh.position.x = centerOffset;
-        textMesh.position.y = hover;
-        textMesh.position.z = 0;
 
         textMesh.rotation.x = -Math.PI / 2;
         textMesh.rotation.y = Math.PI * 2;
+        textMesh.castShadow = true;
 
-        return textMesh;
+        scene.add(textMesh);
     }
 
-    function createClockTextMesh(text, font) {
+    function createClockText(text, font) {
         const size = 15,
             height = 5,
             curveSegments = 4,
@@ -283,78 +308,30 @@
         return textMesh;
     }
 
-    function createClockHand() {
-        secondHandLine = createSecondHandLine()
-        clockGroup.add(secondHandLine);
-        minuteHandLine = createMinuteHandLine()
-        clockGroup.add(minuteHandLine);
-        hourHandLine = createHourHandLine()
-        clockGroup.add(hourHandLine);
-    }
-
-    function createSecondHandLine() {
-        const material = new THREE.LineBasicMaterial({
-            color: 0xffffff
-        });
-
-        const points = [
-            new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(0, 85, 20)
-        ];
-
-        return createLine(points, material);
-    }
-
-    function createMinuteHandLine() {
-        const material = new THREE.LineBasicMaterial({
-            color: 0xffffff
-        });
-
-        const points = [
-            new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(0, 75, 20)
-        ];
-
-        return createLine(points, material);
-    }
-
-    function createHourHandLine() {
-        const material = new THREE.LineBasicMaterial({
-            color: 0xffffff
-        });
-
-        const points = [
-            new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(0, 50, 20)
-        ];
-
-        return createLine(points, material);
-    }
-
-    function createLine(points, material) {
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        return new THREE.Line(geometry, material);
-    }
-
     function animate() {
         requestAnimationFrame(animate);
 
+        // clock animate
         let date = new Date();
         let hours = date.getHours();
         let minutes = date.getMinutes();
         let seconds = date.getSeconds();
         let milliseconds = date.getMilliseconds();
-        let smoothSeconds = seconds + ( milliseconds / 1000 );
-        minutes = minutes + ( smoothSeconds / 60 );
+        let smoothSeconds = seconds + (milliseconds / 1000);
+        minutes = minutes + (smoothSeconds / 60);
+        clockHands.hourHand.rotation.z = -THREE.Math.degToRad(0.5 * ((60 * hours) + minutes));
+        clockHands.minuteHand.rotation.z = -THREE.Math.degToRad(6 * minutes);
+        clockHands.secondHand.rotation.z = -THREE.Math.degToRad(6 * smoothSeconds);
 
-        hourHandLine.rotation.z = -THREE.Math.degToRad( 0.5 * ( (60 * hours) + minutes ) );
-        minuteHandLine.rotation.z = -THREE.Math.degToRad( 6 * minutes );
-        secondHandLine.rotation.z = -THREE.Math.degToRad( 6 * smoothSeconds );
+        // ply ball animate
+        plyBall.rotation.y += 0.01;
+        if (plyBall.position.x > 450 || plyBall.position.x < -450) {
+            plyBall.userData.dx *= -1;
+        }
+        plyBall.position.x += plyBall.userData.dx;
 
-        camera.lookAt(cameraTarget);
         renderer.render(scene, camera);
     }
-
 </script>
 </body>
 </html>
